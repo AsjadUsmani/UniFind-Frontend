@@ -36,11 +36,12 @@ import {
 } from "@/components/ui/select"
 import Link from "next/link"
 import { useToast } from '@/hooks/use-toast'
+import Image from "next/image"
 
 // 1. Define the Validation Schema
 const formSchema = z.object({
   name: z.string().min(2, {
-    message: "Name must be at least 2 characters.",
+    message: "`Name must be at least 2 ch`aracters.",
   }),
   email: z
     .string()
@@ -118,7 +119,7 @@ export default function RegisterPage() {
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-2">
             <div className="p-3 bg-primary/10 rounded-full">
-              <GraduationCap className="h-8 w-8 text-primary" />
+              <Image src={'/logo.png'} alt="Unifind Logo" width={40} height={40} className="text-primary" />
             </div>
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight text-slate-900">

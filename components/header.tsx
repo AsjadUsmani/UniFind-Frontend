@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,18 +11,29 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, Menu, X, Plus, Bell, Settings, LogOut, User, Shield } from "lucide-react"
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Search,
+  Menu,
+  X,
+  Plus,
+  Bell,
+  Settings,
+  LogOut,
+  User,
+  Shield,
+} from "lucide-react";
+import Image from "next/image";
 
 interface HeaderProps {
-  isLoggedIn?: boolean
-  isAdmin?: boolean
+  isLoggedIn?: boolean;
+  isAdmin?: boolean;
 }
 
 export function Header({ isLoggedIn = true, isAdmin = false }: HeaderProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
@@ -30,14 +41,23 @@ export function Header({ isLoggedIn = true, isAdmin = false }: HeaderProps) {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <span className="text-lg font-bold text-primary-foreground">U</span>
+            <Image
+              src={"/logo.png"}
+              alt="Unifind Logo"
+              width={60}
+              height={60}
+              className="text-primary"
+            />
           </div>
           <span className="text-xl font-bold text-foreground">UniFind</span>
         </Link>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6">
-          <Link href="/" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+          <Link
+            href="/"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
             Home
           </Link>
           <Link
@@ -80,7 +100,12 @@ export function Header({ isLoggedIn = true, isAdmin = false }: HeaderProps) {
         <div className="flex items-center gap-3">
           {isLoggedIn ? (
             <>
-              <Button asChild variant="default" size="sm" className="hidden sm:flex">
+              <Button
+                asChild
+                variant="default"
+                size="sm"
+                className="hidden sm:flex"
+              >
                 <Link href="/report">
                   <Plus className="h-4 w-4 mr-1" />
                   Report Item
@@ -96,7 +121,10 @@ export function Header({ isLoggedIn = true, isAdmin = false }: HeaderProps) {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                  <Button
+                    variant="ghost"
+                    className="relative h-9 w-9 rounded-full"
+                  >
                     <Avatar className="h-9 w-9">
                       <AvatarImage src="/student-avatar.png" alt="User" />
                       <AvatarFallback>JD</AvatarFallback>
@@ -106,8 +134,12 @@ export function Header({ isLoggedIn = true, isAdmin = false }: HeaderProps) {
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">John Doe</p>
-                      <p className="text-xs leading-none text-muted-foreground">john.d@university.edu</p>
+                      <p className="text-sm font-medium leading-none">
+                        John Doe
+                      </p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        john.d@university.edu
+                      </p>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -159,8 +191,17 @@ export function Header({ isLoggedIn = true, isAdmin = false }: HeaderProps) {
           )}
 
           {/* Mobile Menu Button */}
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            {mobileMenuOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
           </Button>
         </div>
       </div>
@@ -223,5 +264,5 @@ export function Header({ isLoggedIn = true, isAdmin = false }: HeaderProps) {
         </div>
       )}
     </header>
-  )
+  );
 }
