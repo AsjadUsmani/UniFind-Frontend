@@ -1,234 +1,376 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
-import Link from "next/link"
-import { Header } from "@/components/header"
-import { Footer } from "@/components/footer"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
+import axios from "axios" // Assuming you use axios for API calls
+import { useRouter } from 'next/navigation'
+import { useToast } from '@/hooks/use-toast'
+import { Loader2, Send, CornerUpLeft, BookOpen, MapPin, Calendar, Tag, Shield } from "lucide-react"
+
+// Shadcn UI Components
 import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { categories, buildings } from "@/lib/mock-data"
-import { ArrowLeft, Upload, X } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Header } from "@/components/header"
+// For user feedback via site's `useToast`
+
+// --- 1. Define Form Schema using Zod ---
+const reportSchema = z.object({
+  type: z.enum(["lost", "found"], {
+    required_error: "You must specify if the item was lost or found.",
+  }),
+  title: z.string().min(5, {
+    message: "Title must be at least 5 characters.",
+  }),
+  description: z.string().min(20, {
+    message: "Description must be at least 20 characters and detail the item.",
+  }),
+  category: z.string().min(2, {
+    message: "Please select an item category.",
+  }),
+  campus: z.string().min(2, {
+    message: "Please select the campus location.",
+  }),
+  building: z.string().min(2, {
+    message: "Please specify the building.",
+  }),
+  locationText: z.string().min(5, {
+    message: "Provide specific details (e.g., 'Near library entrance').",
+  }),
+  date: z.string().min(1, {
+    message: "Please specify the date.",
+  }),
+  // NOTE: Image upload logic (Multer/Cloudinary) would be added here
+})
+
+type ReportFormValues = z.infer<typeof reportSchema>
+
+// --- Configuration ---
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000") + "/api/reports"
+
+// Dummy data for dropdowns (Replace with actual data fetched from backend if necessary)
+const CATEGORIES = ["Wallet", "Keys", "Electronics", "Documents", "Clothing", "Other"]
+const CAMPUSES = ["Main Campus", "Satellite Campus A", "Medical School"]
+const BUILDINGS = ["Library", "Admin Block", "Cafeteria", "Lecture Hall C"]
+
 
 export default function ReportPage() {
-  const [reportType, setReportType] = useState<"lost" | "found">("lost")
-  const [images, setImages] = useState<string[]>([])
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  
+  const router = useRouter()
+  const { toast } = useToast()
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (files) {
-      const newImages = Array.from(files).map((file) => URL.createObjectURL(file))
-      setImages((prev) => [...prev, ...newImages].slice(0, 4))
+  // NOTE: Fetch the JWT token from localStorage (client-side)
+  const getToken = () => (typeof window !== 'undefined' ? localStorage.getItem('token') : null)
+
+  const form = useForm<ReportFormValues>({
+    resolver: zodResolver(reportSchema),
+    defaultValues: {
+      type: "lost", // Default to 'lost'
+      title: "",
+      description: "",
+      category: "",
+      campus: "",
+      building: "",
+      locationText: "",
+      date: new Date().toISOString().split('T')[0], // Default to today's date
+    },
+  })
+
+  // Handle form submission
+  async function onSubmit(values: ReportFormValues) {
+    setIsLoading(true)
+
+    try {
+      const token = getToken()
+      if (!token) {
+        toast({ title: 'Not signed in', description: 'Please log in to file a report', variant: 'destructive' })
+        router.push('/login')
+        return
+      }
+
+      // API Call to your backend with Authorization header
+      const response = await axios.post(API_URL, values, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.status === 201 || response.status === 200) {
+        toast({ title: 'Report filed', description: 'Report successfully filed! An email notification may be sent if a match is found.' })
+        form.reset({
+          type: values.type,
+          date: new Date().toISOString().split('T')[0],
+        })
+        router.push('/')
+      }
+    } catch (error) {
+      console.error("Report submission failed:", error);
+      // More robust error handling for specific API messages
+      const errorMessage = axios.isAxiosError(error)
+        ? error.response?.data?.message || "Failed to submit report. Please try again."
+        : "An unknown error occurred.";
+
+      toast({ title: 'Failed to submit', description: errorMessage, variant: 'destructive' })
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const removeImage = (index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setIsSubmitting(false)
-    // Would redirect on success
-  }
-
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header isLoggedIn={true} />
-
-      <main className="flex-1">
-        <div className="container mx-auto px-4 py-8 max-w-3xl">
-          {/* Back Button */}
-          <Button asChild variant="ghost" className="mb-6">
-            <Link href="/">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Home
-            </Link>
-          </Button>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-2xl">Report an Item</CardTitle>
-              <CardDescription>
-                Fill in the details below to report a lost or found item. The more details you provide, the better
-                chances of matching.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-8">
-                {/* Report Type */}
-                <div className="space-y-3">
-                  <Label className="text-base font-semibold">Report Type</Label>
-                  <RadioGroup
-                    value={reportType}
-                    onValueChange={(v) => setReportType(v as "lost" | "found")}
-                    className="flex gap-4"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="lost" id="lost" />
-                      <Label htmlFor="lost" className="font-normal cursor-pointer">
-                        I lost an item
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="found" id="found" />
-                      <Label htmlFor="found" className="font-normal cursor-pointer">
-                        I found an item
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                {/* Item Details */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-lg">Item Details</h3>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="title">Item Title *</Label>
-                      <Input id="title" placeholder="e.g., Black iPhone 15 Pro" required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="category">Category *</Label>
-                      <Select required>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((cat) => (
-                            <SelectItem key={cat.value} value={cat.value}>
-                              {cat.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description *</Label>
-                    <Textarea
-                      id="description"
-                      placeholder="Provide a detailed description of the item including any identifying features, color, brand, etc."
-                      className="min-h-[120px]"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Location & Time */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-lg">Location & Time</h3>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="building">Building *</Label>
-                      <Select required>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select building" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {buildings.map((building) => (
-                            <SelectItem key={building} value={building}>
-                              {building}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="location">Specific Location</Label>
-                      <Input id="location" placeholder="e.g., Room 201, Near entrance" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="date">Date *</Label>
-                      <Input type="date" id="date" required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="time">Approximate Time</Label>
-                      <Input type="time" id="time" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Images */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-lg">Images (Optional)</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Upload up to 4 images of the item. Clear photos help with identification.
-                  </p>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {images.map((image, index) => (
-                      <div
-                        key={index}
-                        className="relative aspect-square rounded-lg border border-border overflow-hidden group"
+    <div className="overflow-y-hidden">
+      <Header/>
+    <div className="flex justify-center py-10 px-4 bg-gray-50 dark:bg-gray-900">
+      <Card className="w-full max-w-3xl shadow-xl">
+        <CardHeader className="text-center">
+          <CardTitle className="text-3xl font-bold text-primary">
+            File a Report
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            {form.watch("type") === "lost" 
+                ? "Help us find your lost item." 
+                : "Help return a found item to its owner."}
+          </p>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              
+              {/* Row 1: Type (Lost/Found) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-lg">Report Type</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                        disabled={isLoading}
                       >
-                        <img
-                          src={image || "/placeholder.svg"}
-                          alt={`Upload ${index + 1}`}
-                          className="w-full h-full object-cover"
+                        <FormControl>
+                          <SelectTrigger className="h-12">
+                            <CornerUpLeft className="mr-2 h-5 w-5 text-gray-400" />
+                            <SelectValue placeholder="Select Report Type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="lost">Lost Item</SelectItem>
+                          <SelectItem value="found">Found Item</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              {/* Date Field */}
+              <FormField
+                control={form.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-lg">Date {form.watch("type") === "lost" ? "Lost" : "Found"}</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                        <Input 
+                          type="date" 
+                          className="pl-10 h-12" 
+                          max={new Date().toISOString().split('T')[0]} // Max date is today
+                          disabled={isLoading}
+                          {...field} 
                         />
-                        <button
-                          type="button"
-                          onClick={() => removeImage(index)}
-                          className="absolute top-2 right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
                       </div>
-                    ))}
-                    {images.length < 4 && (
-                      <label className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-muted-foreground/50 transition-colors cursor-pointer flex flex-col items-center justify-center gap-2">
-                        <Upload className="h-6 w-6 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Upload</span>
-                        <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
-                      </label>
-                    )}
-                  </div>
-                </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              </div>
 
-                {/* Contact Preferences */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-lg">Contact Preferences</h3>
-                  <div className="space-y-2">
-                    <Label htmlFor="contact">Additional Contact Info (Optional)</Label>
-                    <Input id="contact" placeholder="Phone number or preferred contact method" />
-                    <p className="text-xs text-muted-foreground">
-                      Your registered email will be used as the primary contact. This is optional additional info.
-                    </p>
-                  </div>
-                </div>
+              {/* Row 2: Title & Category */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem className="col-span-2">
+                      <FormLabel>Item Title</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <BookOpen className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                          <Input placeholder="e.g., Black leather wallet" className="pl-10 h-12" disabled={isLoading} {...field} />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                        disabled={isLoading}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-12">
+                            <Tag className="mr-2 h-4 w-4 text-gray-400" />
+                            <SelectValue placeholder="Select Category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            {CATEGORIES.map(cat => (
+                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-                {/* Submit */}
-                <div className="flex gap-4 pt-4">
-                  <Button type="submit" className="flex-1" disabled={isSubmitting}>
-                    {isSubmitting ? "Submitting..." : "Submit Report"}
-                  </Button>
-                  <Button type="button" variant="outline" asChild>
-                    <Link href="/">Cancel</Link>
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
+              {/* Row 3: Description */}
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Description</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Detailed description of the item, including color, brand, and any unique markings."
+                        rows={4}
+                        disabled={isLoading}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-      <Footer />
+              {/* Row 4: Location Details */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <FormField
+                  control={form.control}
+                  name="campus"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Campus</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                        disabled={isLoading}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-12">
+                            <Shield className="mr-2 h-4 w-4 text-gray-400" />
+                            <SelectValue placeholder="Select Campus" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            {CAMPUSES.map(camp => (
+                                <SelectItem key={camp} value={camp}>{camp}</SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="building"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Building</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                        disabled={isLoading}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-12">
+                            <MapPin className="mr-2 h-4 w-4 text-gray-400" />
+                            <SelectValue placeholder="Select Building" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            {BUILDINGS.map(bldg => (
+                                <SelectItem key={bldg} value={bldg}>{bldg}</SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="locationText"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Specific Location</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Near entrance, 3rd floor" className="h-12" disabled={isLoading} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* NOTE: Add image upload component here (e.g., using a separate component for Cloudinary/S3 integration) */}
+
+              <Button type="submit" className="w-full h-12 mt-6 text-lg" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Submitting Report...
+                  </>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-5 w-5" />
+                    Submit Report
+                  </>
+                )}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </div>
     </div>
   )
 }
